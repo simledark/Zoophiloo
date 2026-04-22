@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zoophiloo — Animaux & Plantes près de chez vous</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --orange:#ff8c42;--orange-d:#e06a1a;--orange-l:#fff3eb;
+  --lime:#c8f53a;--lime-d:#9dc92a;
+  --violet:#7c3aed;--violet-l:#ede9fe;
+  --teal:#0d9488;--teal-l:#ccfbf1;
+  --green:#3B6D11;--green-l:#EAF3DE;
+  --emerald:#10b981;
+  --ink:#0f0f1a;--ink2:#1c1c2e;--ink3:#2a2a3e;
+  --cream:#fafaf7;--warm:#f4f0e8;--sand:#e8e2d4;
+  --text:#0f0f1a;--muted:#64748b;
+  --glass:rgba(255,255,255,.07);--glass2:rgba(255,255,255,.13);
+  --bd:rgba(255,255,255,.12);--bl:rgba(0,0,0,.08);
+  --r8:8px;--r12:12px;--r18:18px;--r50:50px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--cream);color:var(--text);overflow:hidden}
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* ── LOGO D ── */
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+.logo-mark{width:38px;height:38px;background:var(--orange);border-radius:10px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;flex-shrink:0}
+.logo-mark::before{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.18);top:-5px;right:-5px}
+.logo-mark::after{content:'';position:absolute;width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.12);bottom:-4px;left:-4px}
+.logo-z{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:#fff;line-height:1;position:relative;z-index:1}
+.logo-name{display:flex;flex-direction:column;line-height:1.05}
+.logo-zoo{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:#fff;letter-spacing:-.3px}
+.logo-phioo{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:var(--orange);letter-spacing:-.3px}
+
+/* ── NAV ── */
+nav{background:var(--ink);height:60px;display:flex;align-items:center;padding:0 20px;gap:14px;z-index:1000;flex-shrink:0}
+.nav-search{flex:1;display:flex;align-items:center;background:var(--glass2);border:1px solid var(--bd);border-radius:var(--r50);overflow:hidden;transition:.2s;max-width:500px}
+.nav-search:focus-within{border-color:var(--orange);background:rgba(255,255,255,.18)}
+.nav-search input{flex:1;border:none;background:transparent;padding:8px 16px;color:#fff;font-family:'Space Grotesk',sans-serif;font-size:14px;outline:none}
+.nav-search input::placeholder{color:rgba(255,255,255,.38)}
+.nav-search button{background:var(--orange);border:none;padding:8px 14px;cursor:pointer;color:#fff;font-size:14px;transition:.15s}
+.nav-search button:hover{background:var(--orange-d)}
+.nav-right{display:flex;gap:8px;margin-left:auto;flex-shrink:0}
+.nbtn{background:var(--glass);border:1px solid var(--bd);color:#fff;padding:7px 14px;border-radius:var(--r50);cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;transition:.2s;white-space:nowrap}
+.nbtn:hover{background:var(--glass2)}
+.nbtn.accent{background:var(--orange);color:#fff;border-color:var(--orange)}
+.nbtn.accent:hover{background:var(--orange-d)}
+.nav-user{display:flex;align-items:center;gap:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+.navav{width:30px;height:30px;border-radius:50%;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid var(--lime)}
+
+/* ── PILLS ── */
+.pills-bar{background:var(--ink2);border-bottom:1px solid rgba(255,255,255,.07);padding:0 20px;flex-shrink:0}
+.pills{display:flex;gap:5px;overflow-x:auto;padding:8px 0;scrollbar-width:none}
+.pills::-webkit-scrollbar{display:none}
+.pill{display:flex;align-items:center;gap:5px;border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.65);padding:5px 13px;border-radius:var(--r50);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;transition:.16s;background:transparent;font-family:'Space Grotesk',sans-serif}
+.pill:hover{border-color:var(--orange);color:var(--orange)}
+.pill.on{background:var(--orange);border-color:var(--orange);color:#fff}
+
+/* ── LAYOUT ── */
+.main-layout{display:flex;flex:1;overflow:hidden}
+#map{flex:1;position:relative;z-index:1;background:#e8e0d0}
+.leaflet-container{background:#0d1a0d}
+
+/* ── SIDEBAR ── */
+.sidebar{width:385px;min-width:330px;background:var(--cream);display:flex;flex-direction:column;overflow:hidden;border-left:1.5px solid var(--sand);transition:width .3s;position:relative}
+.sidebar.closed{width:0;min-width:0;border:none}
+.stoggle{position:absolute;left:-18px;top:50%;transform:translateY(-50%);width:18px;height:52px;background:var(--ink2);border:1px solid rgba(255,255,255,.15);border-right:none;border-radius:8px 0 0 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;z-index:10}
+.stoggle:hover{background:var(--ink3)}
+.s-head{padding:13px 16px;border-bottom:1px solid var(--sand);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.s-count{font-family:'Syne',sans-serif;font-size:14px;color:var(--text)}
+.s-count strong{color:var(--orange);font-size:18px}
+.s-sort{border:1.5px solid var(--sand);border-radius:8px;padding:5px 9px;font-family:'Space Grotesk',sans-serif;font-size:12px;color:var(--text);background:white;outline:none;cursor:pointer}
+.s-list{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
+.s-list::-webkit-scrollbar{width:3px}
+.s-list::-webkit-scrollbar-thumb{background:var(--sand);border-radius:3px}
+
+/* ── CARDS ── */
+.lcard{background:#fff;border-radius:12px;border:1.5px solid var(--bl);cursor:pointer;transition:.2s;overflow:hidden;display:flex}
+.lcard:hover{border-color:var(--orange-d);box-shadow:0 5px 20px rgba(15,15,26,.1);transform:translateY(-1px)}
+.lcard.hl{border-color:var(--orange);box-shadow:0 0 0 2px rgba(255,140,66,.2)}
+.lcard-img{width:88px;min-width:88px;height:84px;background:linear-gradient(135deg,#fef3e2,#fde8c8);overflow:hidden;position:relative;flex-shrink:0}
+.lcard-img img{width:100%;height:100%;object-fit:cover}
+.lcard-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px}
+.lcard-body{flex:1;padding:9px 11px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.lcard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
+.lcard-title{font-size:13px;font-weight:700;color:var(--text);line-height:1.3;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.lcard-price{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--orange);white-space:nowrap}
+.lcard-price.free{color:var(--emerald)}
+.lcard-price.swap{color:var(--violet)}
+.lcard-tags{display:flex;gap:3px;flex-wrap:wrap}
+.ltag{padding:2px 6px;border-radius:20px;font-size:10px;font-weight:700}
+.lt-a{background:var(--orange-l);color:#c45c10}
+.lt-b{background:var(--violet-l);color:var(--violet)}
+.lt-c{background:var(--green-l);color:var(--green)}
+.lt-d{background:#fff7ed;color:#c2410c}
+.lcard-loc{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:3px;margin-top:1px}
+.lbadge{position:absolute;top:5px;left:5px;padding:2px 6px;border-radius:20px;font-size:9px;font-weight:800;text-transform:uppercase}
+.bv{background:var(--orange);color:#fff}
+.bd2{background:var(--emerald);color:#fff}
+.be{background:var(--violet);color:#fff}
+
+/* ── MAP CONTROLS ── */
+.map-ctrls{position:absolute;top:12px;left:12px;z-index:500;display:flex;flex-direction:column;gap:7px}
+.mc-btn{background:white;border:1.5px solid var(--bl);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;color:var(--text);transition:.2s;display:flex;align-items:center;gap:7px;box-shadow:0 2px 8px rgba(0,0,0,.12);white-space:nowrap}
+.mc-btn:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
+.mc-btn.active{background:var(--orange);border-color:var(--orange-d);color:#fff}
+
+/* ── MARKERS ── */
+.am{width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:2.5px solid white;box-shadow:0 3px 10px rgba(0,0,0,.28);cursor:pointer;transition:.2s}
+.am:hover{transform:rotate(-45deg) scale(1.15)}
+.am .ico{transform:rotate(45deg);font-size:15px;line-height:1}
+.marker-popup .leaflet-popup-content-wrapper{border-radius:12px;padding:0;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.2);border:none}
+.marker-popup .leaflet-popup-content{margin:0!important;width:215px!important}
+.mpop{padding:13px}
+.mpop h4{font-family:'Syne',sans-serif;font-size:13.5px;color:var(--text);margin-bottom:5px;line-height:1.3}
+.mpop-price{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--orange)}
+.mpop-price.free{color:var(--emerald)}
+.mpop-price.swap{color:var(--violet)}
+.mpop-tags{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}
+.mpop-loc{font-size:11px;color:var(--muted);margin-bottom:9px}
+.mpop-btn{width:100%;background:var(--ink);color:#fff;border:none;padding:8px;border-radius:8px;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:12.5px;font-weight:700;transition:.2s}
+.mpop-btn:hover{background:var(--ink2)}
+
+/* ── OVERLAYS ── */
+.ov{display:none;position:fixed;inset:0;background:rgba(10,10,20,.78);z-index:2000;backdrop-filter:blur(6px);align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.ov.on{display:flex}
+.modal{background:var(--cream);border-radius:22px;width:100%;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.4);animation:sup .27s ease;margin:auto}
+.modal-sm{max-width:440px}
+.modal-md{max-width:580px}
+.modal-lg{max-width:720px}
+@keyframes sup{from{transform:translateY(22px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* ── MODAL HEADER ── */
+.mhead{background:var(--ink);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;position:relative;overflow:hidden}
+.mhead::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 120% at 85% 50%,rgba(255,140,66,.3),transparent 70%);pointer-events:none}
+.mhead h2{font-family:'Syne',sans-serif;color:#fff;font-size:19px;position:relative;z-index:1}
+.mclose{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;width:29px;height:29px;border-radius:50%;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;position:relative;z-index:1}
+.mclose:hover{background:rgba(255,255,255,.22)}
+.mbody{padding:22px;display:flex;flex-direction:column;gap:16px}
+.mfoot{padding:0 22px 22px}
+
+/* ── FORM ── */
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:11.5px;font-weight:700;color:var(--text)}
+.fg input,.fg select,.fg textarea{border:1.5px solid #e2e8f0;border-radius:9px;padding:9px 11px;font-family:'Space Grotesk',sans-serif;font-size:13px;color:var(--text);background:#fff;outline:none;transition:.2s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,140,66,.12)}
+.fg textarea{resize:vertical;min-height:76px}
+.fg .hint{font-size:11px;color:var(--muted);line-height:1.4}
+.fg .hint.imp{color:var(--teal);font-weight:600;background:var(--teal-l);padding:8px 10px;border-radius:8px;border-left:3px solid var(--teal);margin-top:2px}
+.ftabs{display:flex;gap:6px}
+.ftab{flex:1;padding:8px 5px;border-radius:9px;border:1.5px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;transition:.2s;text-align:center}
+.ftab:hover{border-color:rgba(255,140,66,.4)}
+.ftab.tv{background:var(--orange);border-color:var(--orange);color:#fff}
+.ftab.td{background:var(--emerald);border-color:var(--emerald);color:#fff}
+.ftab.te{background:var(--violet);border-color:var(--violet);color:#fff}
+.geo-row{display:flex;gap:7px}
+.geo-row input{flex:1}
+.geo-btn{background:var(--teal);color:#fff;border:none;padding:9px 12px;border-radius:9px;cursor:pointer;font-size:14px;transition:.2s;flex-shrink:0}
+.geo-btn:hover{background:#0f766e}
+.divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--sand)}
+.btn-main{width:100%;background:linear-gradient(135deg,var(--orange),var(--orange-d));color:#fff;border:none;padding:13px;border-radius:var(--r50);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:.2s;box-shadow:0 6px 22px rgba(255,140,66,.28)}
+.btn-main:hover{transform:scale(1.015);box-shadow:0 10px 30px rgba(255,140,66,.38)}
+.btn-main:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-ghost{width:100%;background:transparent;color:var(--text);border:1.5px solid var(--sand);padding:11px;border-radius:var(--r50);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:.2s}
+.btn-ghost:hover{background:var(--warm)}
+.btn-violet{background:linear-gradient(135deg,var(--violet),#5b21b6);color:#fff;border:none;padding:9px 16px;border-radius:var(--r50);cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;transition:.2s;width:fit-content}
+.btn-violet:hover{transform:scale(1.03);box-shadow:0 6px 18px rgba(124,58,237,.3)}
+.btn-violet:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+.stitle{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:-4px;margin-top:3px}
+
+/* ── PHOTOS ── */
+.pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:9px}
+.pslot{aspect-ratio:1;border-radius:9px;border:2px dashed #cbd5e1;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:.2s;position:relative;overflow:hidden;background:#f8fafc;font-size:10px;color:var(--muted);gap:2px}
+.pslot:hover{border-color:var(--orange);background:var(--orange-l)}
+.pslot.filled{border-style:solid;border-color:var(--orange-d)}
+.pslot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.pslot .rem{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;width:19px;height:19px;border-radius:50%;font-size:10px;cursor:pointer;display:none;align-items:center;justify-content:center}
+.pslot.filled:hover .rem{display:flex}
+.ai-res{background:linear-gradient(135deg,#faf5ff,#f5f3ff);border:1.5px solid #c4b5fd;border-radius:9px;padding:11px 13px;font-size:12.5px;display:none}
+.ai-res.on{display:block}
+.ai-res strong{color:var(--violet)}
+
+/* ── AUTH TABS ── */
+.atabs{display:flex;border-bottom:2px solid var(--sand);margin-bottom:4px}
+.atab{flex:1;padding:9px;text-align:center;font-size:13.5px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.2s}
+.atab.on{color:var(--orange);border-color:var(--orange)}
+.asec{display:none}
+.asec.on{display:flex;flex-direction:column;gap:13px}
+
+/* ── DETAIL ── */
+.dgal{position:relative;aspect-ratio:16/9;background:#fef3e2;overflow:hidden}
+.dgal img{width:100%;height:100%;object-fit:cover}
+.dgal-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:75px;background:linear-gradient(135deg,#fef3e2,#fde8c8)}
+.gnav{position:absolute;top:50%;transform:translateY(-50%);width:100%;display:flex;justify-content:space-between;padding:0 12px;pointer-events:none}
+.gnav button{pointer-events:all;background:rgba(0,0,0,.48);color:#fff;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:13px;transition:.2s}
+.gnav button:hover{background:rgba(0,0,0,.75)}
+.gdots{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);display:flex;gap:5px}
+.gdot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.44);transition:.2s;cursor:pointer}
+.gdot.on{background:#fff;transform:scale(1.3)}
+.dbody{padding:22px 26px}
+.seller-box{background:var(--warm);border-radius:11px;padding:12px;display:flex;align-items:center;gap:11px;margin-bottom:14px}
+.s-av{width:40px;height:40px;border-radius:50%;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0}
+.s-info h4{font-size:13px;font-weight:700;color:var(--text)}
+.s-info p{font-size:11px;color:var(--muted)}
+.dtop{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:11px}
+.dtitle{font-family:'Syne',sans-serif;font-size:22px;color:var(--text);line-height:1.15}
+.dprice{font-family:'Syne',sans-serif;font-size:26px;font-weight:700;color:var(--orange);white-space:nowrap}
+.dprice.free{color:var(--emerald)}
+.dprice.swap{color:var(--violet)}
+.dtags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
+.ddesc{font-size:13.5px;line-height:1.75;color:var(--text);margin-bottom:15px}
+.dloc{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-bottom:18px}
+.dacts{display:flex;gap:9px;flex-wrap:wrap}
+.btn-contact{flex:1;min-width:130px;background:var(--ink);color:#fff;border:none;padding:12px 16px;border-radius:var(--r50);font-family:'Space Grotesk',sans-serif;font-size:13.5px;font-weight:700;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn-contact:hover{background:var(--ink2);box-shadow:0 5px 18px rgba(15,15,26,.25)}
+.btn-fiche{flex:1;min-width:130px;background:var(--green-l);color:var(--green);border:1.5px solid #97C459;padding:12px 16px;border-radius:var(--r50);font-family:'Space Grotesk',sans-serif;font-size:13.5px;font-weight:700;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}
+.btn-fiche:hover{background:#d6edba}
+.dclose{position:absolute;top:11px;right:11px;background:rgba(0,0,0,.5);color:#fff;border:none;width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;transition:.2s}
+.dclose:hover{background:rgba(0,0,0,.8)}
+
+/* ── MSG ── */
+.msg-thread{max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;margin-bottom:11px;padding:3px}
+.msg{max-width:80%;padding:8px 12px;border-radius:13px;font-size:13px;line-height:1.5}
+.msg.me{background:var(--orange);color:#fff;align-self:flex-end;border-radius:13px 13px 3px 13px}
+.msg.them{background:var(--warm);color:var(--text);align-self:flex-start;border-radius:13px 13px 13px 3px}
+.msg-time{font-size:9.5px;opacity:.55;margin-top:2px}
+.msg-ir{display:flex;gap:7px}
+.msg-ir input{flex:1;border:1.5px solid var(--sand);border-radius:var(--r50);padding:9px 13px;font-family:'Space Grotesk',sans-serif;font-size:13px;outline:none;transition:.2s}
+.msg-ir input:focus{border-color:var(--orange)}
+.msg-send{background:var(--orange);color:#fff;border:none;padding:9px 15px;border-radius:var(--r50);cursor:pointer;font-size:13px;transition:.2s}
+.msg-send:hover{background:var(--orange-d)}
+
+/* ── PROFIL ── */
+.prof-hd{background:var(--ink);padding:22px 26px;position:relative;overflow:hidden}
+.prof-hd::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 100% at 90% 50%,rgba(255,140,66,.18),transparent 70%);pointer-events:none}
+.prof-av{width:58px;height:58px;border-radius:50%;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;border:3px solid var(--lime);margin-bottom:10px;position:relative;z-index:1}
+.prof-name{font-family:'Syne',sans-serif;color:#fff;font-size:19px;position:relative;z-index:1}
+.prof-email{color:rgba(255,255,255,.5);font-size:12.5px;position:relative;z-index:1;margin-top:2px}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(55px);background:var(--ink);color:#fff;padding:11px 20px;border-radius:var(--r50);font-size:13px;font-weight:600;z-index:9999;transition:.26s cubic-bezier(.4,0,.2,1);box-shadow:0 7px 25px rgba(0,0,0,.3);white-space:nowrap;border:1px solid rgba(255,255,255,.12)}
+.toast.on{transform:translateX(-50%) translateY(0)}
+.toast.success{border-color:var(--lime)}
+.toast.error{border-color:#f43f5e}
+
+/* ── UTILS ── */
+.spinner{display:inline-block;width:16px;height:16px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.skeleton{background:linear-gradient(90deg,#f4efe8 25%,#ece6d8 50%,#f4efe8 75%);background-size:200% 100%;animation:skel 1.4s ease-in-out infinite;border-radius:9px}
+@keyframes skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.skel-h{height:84px;margin-bottom:8px}
+.empty-s{text-align:center;padding:44px 18px;color:var(--muted)}
+.empty-s .big{font-size:46px;margin-bottom:10px}
+.empty-s p{font-size:13.5px;line-height:1.6}
+@media(max-width:600px){.frow{grid-template-columns:1fr}.sidebar{display:none}}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- NAV -->
+<nav>
+  <a class="logo" href="#">
+    <div class="logo-mark"><span class="logo-z">Z</span></div>
+    <div class="logo-name"><span class="logo-zoo">Zoo</span><span class="logo-phioo">philoo</span></div>
+  </a>
+  <div class="nav-search">
+    <input id="searchInput" type="text" placeholder="Animal, plante, race, ville…" oninput="doSearch()">
+    <button onclick="doSearch()">🔍</button>
+  </div>
+  <div class="nav-right" id="navActions">
+    <button class="nbtn" onclick="openAuth('login')">Se connecter</button>
+    <button class="nbtn accent" onclick="openAuth('register')">Créer un compte</button>
+  </div>
+</nav>
+
+<!-- PILLS -->
+<div class="pills-bar">
+  <div class="pills" id="pillsBar">
+    <button class="pill on" data-f="all" onclick="setFilter(this,'all')">🌍 Tous</button>
+    <button class="pill" data-f="chien" onclick="setFilter(this,'chien')">🐶 Chiens</button>
+    <button class="pill" data-f="chat" onclick="setFilter(this,'chat')">🐱 Chats</button>
+    <button class="pill" data-f="oiseau" onclick="setFilter(this,'oiseau')">🐦 Oiseaux</button>
+    <button class="pill" data-f="reptile" onclick="setFilter(this,'reptile')">🦎 Reptiles</button>
+    <button class="pill" data-f="poisson" onclick="setFilter(this,'poisson')">🐠 Poissons</button>
+    <button class="pill" data-f="insecte" onclick="setFilter(this,'insecte')">🦗 Insectes</button>
+    <button class="pill" data-f="papillon" onclick="setFilter(this,'papillon')">🦋 Papillons</button>
+    <button class="pill" data-f="phasme" onclick="setFilter(this,'phasme')">🪲 Phasmes</button>
+    <button class="pill" data-f="rongeur" onclick="setFilter(this,'rongeur')">🐹 Rongeurs</button>
+    <button class="pill" data-f="lapin" onclick="setFilter(this,'lapin')">🐰 Lapins</button>
+    <button class="pill" data-f="amphibien" onclick="setFilter(this,'amphibien')">🐸 Amphibiens</button>
+    <button class="pill" data-f="plante" onclick="setFilter(this,'plante')">🌿 Plantes</button>
+    <button class="pill" data-f="habitat:terrarium" onclick="setFilter(this,'habitat:terrarium')">🪴 Terrarium</button>
+    <button class="pill" data-f="habitat:aquarium" onclick="setFilter(this,'habitat:aquarium')">🌊 Aquarium</button>
+    <button class="pill" data-f="habitat:vivarium" onclick="setFilter(this,'habitat:vivarium')">🌿 Vivarium</button>
+    <button class="pill" data-f="type:don" onclick="setFilter(this,'type:don')">💚 Dons</button>
+    <button class="pill" data-f="type:echange" onclick="setFilter(this,'type:echange')">🔄 Échanges</button>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="main-layout">
+  <div id="map">
+    <div class="map-ctrls">
+      <button class="mc-btn" onclick="geoMe()" id="geoBtn">📍 Me localiser</button>
+      <button class="mc-btn" onclick="openPub()" id="pubBtn" style="display:none">+ Déposer</button>
+    </div>
+  </div>
+  <div class="sidebar" id="sidebar">
+    <div class="stoggle" id="stog" onclick="toggleSb()">◀</div>
+    <div class="s-head">
+      <div class="s-count"><strong id="listCount">0</strong> annonces</div>
+      <select class="s-sort" onchange="sortBy(this.value)">
+        <option value="date">Plus récentes</option>
+        <option value="price_asc">Prix ↑</option>
+        <option value="price_desc">Prix ↓</option>
+      </select>
+    </div>
+    <div class="s-list" id="sList"><div class="skeleton skel-h"></div><div class="skeleton skel-h"></div><div class="skeleton skel-h"></div></div>
+  </div>
+</div>
+
+</div><!-- end app -->
+
+<!-- AUTH -->
+<div class="ov" id="authOv">
+  <div class="modal modal-md">
+    <div class="mhead"><h2 id="authTitle">Connexion</h2><button class="mclose" onclick="closeAuth()">✕</button></div>
+    <div class="mbody">
+      <div class="atabs">
+        <div class="atab on" id="tabL" onclick="switchAuth('login')">Se connecter</div>
+        <div class="atab" id="tabR" onclick="switchAuth('register')">Créer un compte</div>
+      </div>
+      <div class="asec on" id="secL">
+        <div class="fg"><label>Email</label><input id="lEmail" type="email" placeholder="votre@email.com"></div>
+        <div class="fg"><label>Mot de passe</label><input id="lPwd" type="password" placeholder="••••••••"></div>
+        <button class="btn-main" onclick="doLogin()" id="btnLogin">Se connecter</button>
+        <div class="divider">ou</div>
+        <button class="btn-ghost" onclick="switchAuth('register')">Créer un compte gratuit →</button>
+      </div>
+      <div class="asec" id="secR">
+        <div class="stitle">👤 Identité</div>
+        <div class="frow">
+          <div class="fg"><label>Prénom *</label><input id="rPrenom" type="text" placeholder="Marie"></div>
+          <div class="fg"><label>Nom *</label><input id="rNom" type="text" placeholder="Dupont"></div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label>Email *</label><input id="rEmail" type="email" placeholder="marie@email.com"></div>
+          <div class="fg"><label>Date de naissance *</label><input id="rNaiss" type="date"></div>
+        </div>
+        <div class="fg"><label>Téléphone</label><input id="rTel" type="tel" placeholder="+33 6 00 00 00 00"></div>
+        <div class="stitle">📍 Votre adresse</div>
+        <div class="fg">
+          <label>Adresse *</label>
+          <input id="rAddr" type="text" placeholder="12 rue des Roses">
+          <span class="hint imp">🎯 Une adresse précise vous permettra de voir les annonces les plus proches de chez vous et d'être trouvé facilement par les acheteurs !</span>
+        </div>
+        <div class="fg"><label>Complément</label><input id="rAddr2" type="text" placeholder="Bât A, apt 12…"></div>
+        <div class="frow">
+          <div class="fg"><label>Code postal *</label><input id="rCP" type="text" placeholder="69000"></div>
+          <div class="fg"><label>Ville *</label><input id="rVille" type="text" placeholder="Lyon"></div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label>Département</label><input id="rDept" type="text" placeholder="Rhône"></div>
+          <div class="fg"><label>Pays</label><input id="rPays" type="text" value="France"></div>
+        </div>
+        <div class="stitle">🌿 Profil</div>
+        <div class="fg">
+          <label>Statut</label>
+          <select id="rStatut" onchange="document.getElementById('siretGrp').style.display=this.value==='pro'?'flex':'none'">
+            <option value="particulier">Particulier</option>
+            <option value="pro">Éleveur / Horticulteur pro</option>
+          </select>
+        </div>
+        <div class="fg" id="siretGrp" style="display:none"><label>Numéro SIRET</label><input id="rSiret" type="text" placeholder="00000000000000"></div>
+        <div class="fg"><label>Bio (optionnel)</label><textarea id="rBio" placeholder="Passionné de reptiles et de plantes carnivores…" style="min-height:56px"></textarea></div>
+        <div class="stitle">🔒 Sécurité</div>
+        <div class="frow">
+          <div class="fg"><label>Mot de passe *</label><input id="rPwd" type="password" placeholder="Min. 8 caractères"></div>
+          <div class="fg"><label>Confirmer *</label><input id="rPwd2" type="password" placeholder="Répétez"></div>
+        </div>
+        <div class="fg">
+          <label style="display:flex;align-items:flex-start;gap:8px;font-weight:400;cursor:pointer">
+            <input type="checkbox" id="rCGU" style="margin-top:2px;width:auto;flex-shrink:0">
+            <span style="font-size:11.5px;color:var(--muted)">J'accepte les <a href="#" style="color:var(--orange)">CGU</a> et la <a href="#" style="color:var(--orange)">politique de confidentialité</a> *</span>
+          </label>
+        </div>
+        <button class="btn-main" onclick="doRegister()" id="btnReg">Créer mon compte ✨</button>
+        <div class="divider">ou</div>
+        <button class="btn-ghost" onclick="switchAuth('login')">Déjà inscrit ? Se connecter →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PUBLISH -->
+<div class="ov" id="pubOv">
+  <div class="modal modal-lg">
+    <div class="mhead"><h2>✨ Déposer une annonce</h2><button class="mclose" onclick="closePub()">✕</button></div>
+    <div class="mbody">
+      <div>
+        <div class="fg" style="margin-bottom:9px"><label>📷 Photos (8 max) — Ajoutez une photo pour l'identification IA</label></div>
+        <div class="pgrid" id="pgrid"></div>
+        <input type="file" id="photoInput" accept="image/*" multiple style="display:none" onchange="handlePhotos(event)">
+        <button class="btn-violet" id="aiBtn" onclick="runAI()" disabled>✨ Identifier &amp; générer le titre</button>
+        <div class="ai-res" id="aiRes"></div>
+      </div>
+      <div class="fg">
+        <label>Type d'annonce *</label>
+        <div class="ftabs">
+          <button class="ftab tv" data-t="vente" onclick="setPT(this,'vente')">💰 Vente</button>
+          <button class="ftab" data-t="don" onclick="setPT(this,'don')">💚 Don</button>
+          <button class="ftab" data-t="echange" onclick="setPT(this,'echange')">🔄 Échange</button>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>Titre *</label><input id="fTitre" type="text" placeholder="ex : Monstera deliciosa ou Chaton Bengal"></div>
+        <div class="fg"><label>Catégorie *</label>
+          <select id="fAnimal">
+            <option value="">— Choisir —</option>
+            <optgroup label="🐾 Animaux">
+              <option value="chien">🐶 Chien</option>
+              <option value="chat">🐱 Chat</option>
+              <option value="oiseau">🐦 Oiseau</option>
+              <option value="reptile">🦎 Reptile</option>
+              <option value="poisson">🐠 Poisson</option>
+              <option value="insecte">🦗 Insecte</option>
+              <option value="papillon">🦋 Papillon</option>
+              <option value="phasme">🪲 Phasme</option>
+              <option value="rongeur">🐹 Rongeur</option>
+              <option value="lapin">🐰 Lapin</option>
+              <option value="amphibien">🐸 Amphibien</option>
+              <option value="autre">🐾 Autre animal</option>
+            </optgroup>
+            <optgroup label="🌿 Plantes">
+              <option value="plante">🌿 Plante d'intérieur</option>
+              <option value="plante_ext">🌳 Plante d'extérieur</option>
+              <option value="plante_carn">🪲 Plante carnivore</option>
+              <option value="cactus">🌵 Cactus / Succulente</option>
+              <option value="orchidee">🌸 Orchidée</option>
+              <option value="bonsai">🎋 Bonsaï</option>
+              <option value="aquatique">💧 Plante aquatique</option>
+              <option value="graine">🌱 Graine / Bouture</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>Race / Espèce / Variété</label><input id="fRace" type="text" placeholder="ex : Bengal, Monstera adansonii, Vénus…"></div>
+        <div class="fg"><label>Habitat / Contenant</label>
+          <select id="fHabitat">
+            <option value="">— Optionnel —</option>
+            <option value="terrarium">🪴 Terrarium</option>
+            <option value="aquarium">🌊 Aquarium</option>
+            <option value="vivarium">🌿 Vivarium</option>
+            <option value="paludarium">💦 Paludarium</option>
+            <option value="cage">🪺 Cage / Volière</option>
+            <option value="pot">🪴 Pot / Jardinière</option>
+            <option value="exterieur">🏠 Extérieur / Jardin</option>
+          </select>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fg" id="prixGrp"><label>Prix (€)</label><input id="fPrix" type="number" placeholder="0 = gratuit" min="0"></div>
+        <div class="fg"><label>Âge / Taille / Stade</label><input id="fAge" type="text" placeholder="ex : 3 mois, 25 cm, bouture…"></div>
+      </div>
+      <div class="fg"><label>Description</label><textarea id="fDesc" placeholder="Caractère, besoins, soins, arrosage, engrais, accessoires inclus…"></textarea></div>
+      <div class="fg">
+        <label>📍 Localisation *</label>
+        <div class="geo-row">
+          <input id="fLoc" type="text" placeholder="Ville ou adresse (ex : Lyon 69000)">
+          <button class="geo-btn" onclick="fillPubGeo()" title="GPS">📍</button>
+        </div>
+      </div>
+    </div>
+    <div class="mfoot"><button class="btn-main" onclick="submitL()" id="pubSubmit">✨ Publier mon annonce</button></div>
+  </div>
+</div>
+
+<!-- DETAIL -->
+<div class="ov" id="detOv">
+  <div class="modal modal-lg" style="position:relative">
+    <button class="dclose" onclick="closeDet()">✕</button>
+    <div class="dgal" id="dgal">
+      <div class="dgal-ph" id="dgalPh">🌿</div>
+      <img id="dgalImg" src="" alt="" style="display:none">
+      <div class="gnav" id="gnav" style="display:none"><button onclick="gNav(-1)">◀</button><button onclick="gNav(1)">▶</button></div>
+      <div class="gdots" id="gdots"></div>
+    </div>
+    <div class="dbody">
+      <div class="seller-box">
+        <div class="s-av" id="sAv">?</div>
+        <div class="s-info"><h4 id="sName">—</h4><p id="sSince"></p></div>
+      </div>
+      <div class="dtop"><div class="dtitle" id="dTitle"></div><div class="dprice" id="dPrice"></div></div>
+      <div class="dtags" id="dTags"></div>
+      <div class="ddesc" id="dDesc"></div>
+      <div class="dloc" id="dLoc"></div>
+      <div class="dacts">
+        <button class="btn-contact" onclick="openMsg()">💬 Contacter</button>
+        <a class="btn-fiche" id="ficheLink" href="#" target="_blank">📚 Fiche conseil</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MSG -->
+<div class="ov" id="msgOv">
+  <div class="modal modal-sm">
+    <div class="mhead"><h2>💬 Message</h2><button class="mclose" onclick="closeMsg()">✕</button></div>
+    <div class="mbody">
+      <div class="msg-thread" id="msgThread"></div>
+      <div class="msg-ir">
+        <input id="msgInput" type="text" placeholder="Votre message…" onkeydown="if(event.key==='Enter')sendMsg()">
+        <button class="msg-send" onclick="sendMsg()">➤</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROFIL -->
+<div class="ov" id="profOv">
+  <div class="modal modal-md">
+    <div class="prof-hd">
+      <div class="prof-av" id="profAv">?</div>
+      <div class="prof-name" id="profName">Mon profil</div>
+      <div class="prof-email" id="profEmail"></div>
+    </div>
+    <div style="background:var(--cream);padding:12px 22px;display:flex;gap:9px">
+      <button class="btn-main" style="flex:1;padding:9px;font-size:12.5px" onclick="openPub();closeProf()">+ Nouvelle annonce</button>
+      <button class="btn-ghost" style="flex:1;padding:9px;font-size:12.5px" onclick="doLogout()">Se déconnecter</button>
+      <button class="mclose" style="background:var(--sand);color:var(--text);border:none;width:34px;height:34px" onclick="closeProf()">✕</button>
+    </div>
+    <div class="mbody" id="profListings"><div class="skeleton skel-h"></div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══ CONFIG ═══════════════════════════════════════════════
+const SB_URL = 'https://eowyydqlqpdjvmaibnuv.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVvd3l5ZHFscXBkanZtYWlibnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NjYwMDIsImV4cCI6MjA5MjQ0MjAwMn0.eTInTl5LZd_57GkeZbcPvj2fRG7F4rvJ_wgEiMVCnGk';
+
+// ═══ CONSTANTES ═══════════════════════════════════════════
+const EM={
+  chien:'🐶',chat:'🐱',oiseau:'🐦',reptile:'🦎',poisson:'🐠',insecte:'🦗',
+  papillon:'🦋',phasme:'🪲',rongeur:'🐹',lapin:'🐰',amphibien:'🐸',autre:'🐾',
+  plante:'🌿',plante_ext:'🌳',plante_carn:'🪲',cactus:'🌵',orchidee:'🌸',
+  bonsai:'🎋',aquatique:'💧',graine:'🌱'
+};
+const FI={
+  chien:'https://www.wamiz.com/chiens/guide',chat:'https://www.wamiz.com/chats/guide',
+  oiseau:'https://www.wamiz.com/oiseaux',reptile:'https://www.reptilis.net/',
+  poisson:'https://www.aquaplante.fr/fiches-poissons',insecte:'https://www.insecte.org/',
+  papillon:'https://lepiforum.org/',phasme:'https://www.phasme.fr/',
+  rongeur:'https://www.wamiz.com/rongeurs',lapin:'https://www.wamiz.com/lapins',
+  amphibien:'https://www.batraciens-rainettes.com/',
+  plante:'https://www.jardiner-malin.fr/',plante_ext:'https://www.jardiner-malin.fr/',
+  plante_carn:'https://www.carniflora.com/',cactus:'https://www.cactus-fr.com/',
+  orchidee:'https://www.orchidee.fr/',bonsai:'https://www.esprit-bonsai.com/',
+  aquatique:'https://www.aquaplante.fr/',graine:'https://www.jardiner-malin.fr/',
+  autre:'https://www.animaux.com/'
+};
+const MC={vente:'#ff8c42',don:'#10b981',echange:'#7c3aed'};
+const isPlante=c=>c&&(c==='plante'||c.startsWith('plante_')||['cactus','orchidee','bonsai','aquatique','graine'].includes(c));
+
+// ═══ ÉTAT ═════════════════════════════════════════════════
+let sb=null,curUser=null,curProf=null;
+let allL=[],filtL=[],mks=[],map=null;
+let aF='all',sM='date',sQ='';
+let curL=null,galI=0,pPh=[],pT='vente',pGeo=null;
+let sbOpen=true,demo=false;
+
+// ═══ INIT ════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded',async()=>{
+  initMap();
+  try{
+    if(SB_URL.includes('VOTRE')){demo=true;showToast('⚠️ Mode démo','error');loadDemo();return}
+    sb=supabase.createClient(SB_URL,SB_KEY);
+    const{data:{session}}=await sb.auth.getSession();
+    if(session){curUser=session.user;await loadProf();updateNav()}
+    await fetchL();
+    sb.auth.onAuthStateChange((_,s)=>{if(s){curUser=s.user;loadProf().then(updateNav)}else{curUser=null;curProf=null;updateNav()}});
+  }catch(e){demo=true;loadDemo();}
+});
+
+// ═══ CARTE ═══════════════════════════════════════════════
+function initMap(){
+  map=L.map('map',{zoomControl:true,attributionControl:false}).setView([46.8,2.3],6);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(map);
+  map.on('moveend',updateVis);map.on('zoomend',updateVis);setTimeout(()=>map.invalidateSize(),500);
+}
+
+function mkIcon(l){
+  const em=EM[l.animal]||'🌿';
+  const col=MC[l.type_annonce]||'#ff8c42';
+  return L.divIcon({className:'',html:`<div class="am" style="background:${col}"><div class="ico">${em}</div></div>`,iconSize:[34,34],iconAnchor:[17,34],popupAnchor:[0,-36]});
+}
+
+function placeMarkers(list){
+  mks.forEach(m=>map.removeLayer(m));mks=[];
+  list.forEach(l=>{
+    if(!l.lat||!l.lng)return;
+    const em=EM[l.animal]||'🌿';
+    const pt=l.type_annonce==='don'?'Gratuit 💚':l.type_annonce==='echange'?'Échange 🔄':l.prix>0?`${l.prix}€`:'Gratuit';
+    const pc=l.type_annonce==='don'||l.prix===0?'free':l.type_annonce==='echange'?'swap':'';
+    const mk=L.marker([l.lat,l.lng],{icon:mkIcon(l)}).addTo(map);
+    mk.bindPopup(`<div class="mpop"><h4>${l.titre}</h4><div class="mpop-tags"><span class="ltag lt-a">${em} ${l.animal}</span>${l.habitat?`<span class="ltag lt-b">${l.habitat}</span>`:''}</div><div class="mpop-price ${pc}">${pt}</div><div class="mpop-loc">📍 ${l.adresse_display||''}</div><button class="mpop-btn" onclick="openDet('${l.id}')">Voir l'annonce →</button></div>`,{className:'marker-popup',maxWidth:230});
+    mks.push(mk);
+  });
+}
+
+function updateVis(){
+  if(!map)return;
+  const b=map.getBounds();
+  const vis=filtL.filter(l=>l.lat&&l.lng&&b.contains([l.lat,l.lng]));
+  document.getElementById('listCount').textContent=vis.length;
+  renderSb(vis);
+}
+
+// ═══ DONNÉES ════════════════════════════════════════════
+async function fetchL(){
+  if(demo)return;
+  const{data,error}=await sb.from('listings').select('*,profiles(prenom,nom,created_at)').eq('statut','active');
+  if(error)return;
+  allL=data||[];applyF();
+}
+
+function loadDemo(){
+  allL=[
+    {id:'d1',titre:'Chiot Labrador chocolat LOF',type_annonce:'vente',animal:'chien',race:'Labrador',habitat:'',prix:850,age_animal:'2 mois',description:'Magnifique chiot LOF, mère présente. Vaccination faite.',adresse_display:'Lyon, 69003',lat:45.7484,lng:4.8471,photos:['https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&q=80'],created_at:'2024-03-10',profiles:{prenom:'Sophie',nom:'M.',created_at:'2024-01-10'}},
+    {id:'d2',titre:'Monstera deliciosa XXL',type_annonce:'vente',animal:'plante',race:'Monstera deliciosa',habitat:'pot',prix:45,age_animal:'3 ans',description:'Magnifique monstera en excellent état, nombreuses feuilles perforées. Pot de 30cm inclus.',adresse_display:'Villeurbanne, 69100',lat:45.7718,lng:4.8902,photos:['https://images.unsplash.com/photo-1614594975525-e45190c55d0b?w=600&q=80'],created_at:'2024-03-08',profiles:{prenom:'Luc',nom:'B.',created_at:'2024-02-14'}},
+    {id:'d3',titre:'Gecko léopard adulte + terrarium',type_annonce:'vente',animal:'reptile',race:'Gecko léopard',habitat:'terrarium',prix:120,age_animal:'3 ans',description:'Gecko léopard femelle adulte. Terrarium équipé complet.',adresse_display:'Bron, 69500',lat:45.7255,lng:4.9159,photos:['https://images.unsplash.com/photo-1590599145008-e4ec48675a9b?w=600&q=80'],created_at:'2024-03-05',profiles:{prenom:'Emma',nom:'R.',created_at:'2024-03-01'}},
+    {id:'d4',titre:'Plante carnivore Dionée à donner',type_annonce:'don',animal:'plante_carn',race:'Dionaea muscipula',habitat:'pot',prix:0,age_animal:'2 ans',description:'Vénus attrape-mouche en bonne santé. Déménagement oblige.',adresse_display:'Décines, 69150',lat:45.7633,lng:4.9625,photos:['https://images.unsplash.com/photo-1611843467160-25afb8df1074?w=600&q=80'],created_at:'2024-03-01',profiles:{prenom:'Paul',nom:'D.',created_at:'2024-02-20'}},
+    {id:'d5',titre:'Boutures de Pothos dorés',type_annonce:'echange',animal:'graine',race:'Epipremnum aureum',habitat:'pot',prix:0,age_animal:'boutures',description:'Nombreuses boutures de Pothos enracinées. Échange contre autre bouture.',adresse_display:'Paris, 75011',lat:48.8634,lng:2.3814,photos:['https://images.unsplash.com/photo-1600411833196-7c1f6b1a8b90?w=600&q=80'],created_at:'2024-02-28',profiles:{prenom:'Alice',nom:'V.',created_at:'2024-01-30'}},
+    {id:'d6',titre:'Phasmes Carausius morosus',type_annonce:'vente',animal:'phasme',race:'Carausius morosus',habitat:'terrarium',prix:5,age_animal:'divers',description:'Phasmes indiens en bonne santé. Idéal pour débuter.',adresse_display:'Bordeaux, 33000',lat:44.8378,lng:-0.5792,photos:['https://images.unsplash.com/photo-1559827291-72f5b35fe46a?w=600&q=80'],created_at:'2024-02-25',profiles:{prenom:'Tom',nom:'L.',created_at:'2024-03-05'}},
+    {id:'d7',titre:'Cactus collection — 12 variétés',type_annonce:'vente',animal:'cactus',race:'Diverses espèces',habitat:'pot',prix:30,age_animal:'2-5 ans',description:'Collection de 12 cactus et succulentes en très bel état. Idéal pour débutant.',adresse_display:'Marseille, 13000',lat:43.2965,lng:5.3698,photos:['https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?w=600&q=80'],created_at:'2024-02-20',profiles:{prenom:'Julie',nom:'C.',created_at:'2024-02-08'}},
+    {id:'d8',titre:'Lapins béliers nains',type_annonce:'vente',animal:'lapin',race:'Bélier nain',habitat:'',prix:45,age_animal:'10 semaines',description:'Élevage familial. Parents visibles.',adresse_display:'Nantes, 44000',lat:47.2184,lng:-1.5536,photos:['https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=600&q=80'],created_at:'2024-02-15',profiles:{prenom:'Claire',nom:'M.',created_at:'2024-01-22'}},
+    {id:'d9',titre:'Bonsaï Ficus ginseng 15 ans',type_annonce:'vente',animal:'bonsai',race:'Ficus retusa',habitat:'pot',prix:180,age_animal:'15 ans',description:'Superbe bonsaï Ficus ginseng de 15 ans, racines aériennes spectaculaires. Hauteur 45cm.',adresse_display:'Toulouse, 31000',lat:43.6047,lng:1.4442,photos:['https://images.unsplash.com/photo-1599598425947-5202edd56fdb?w=600&q=80'],created_at:'2024-02-10',profiles:{prenom:'Marc',nom:'G.',created_at:'2024-01-05'}},
+    {id:'d10',titre:'Axolotl leucistique adulte',type_annonce:'vente',animal:'amphibien',race:'Axolotl',habitat:'aquarium',prix:80,age_animal:'18 mois',description:'Axolotl 25cm, bac 60L équipé inclus.',adresse_display:'Lille, 59000',lat:50.6292,lng:3.0573,photos:['https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=600&q=80'],created_at:'2024-02-05',profiles:{prenom:'Nora',nom:'K.',created_at:'2023-12-15'}},
+    {id:'d11',titre:'Orchidée Phalaenopsis en fleur',type_annonce:'don',animal:'orchidee',race:'Phalaenopsis',habitat:'pot',prix:0,age_animal:'2 ans',description:'Orchidée en pleine floraison, très facile d\'entretien. Trop pour mon appartement.',adresse_display:'Strasbourg, 67000',lat:48.5734,lng:7.7521,photos:['https://images.unsplash.com/photo-1524598171353-9cb32f02d73b?w=600&q=80'],created_at:'2024-02-01',profiles:{prenom:'Anna',nom:'S.',created_at:'2023-11-20'}},
+    {id:'d12',titre:'Aquarium 300L + cichlidés africains',type_annonce:'vente',animal:'poisson',race:'Cichlidés africains',habitat:'aquarium',prix:350,age_animal:'adultes',description:'Aquarium complet 120×60×50cm avec 15 cichlidés.',adresse_display:'Rennes, 35000',lat:48.1173,lng:-1.6778,photos:['https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=600&q=80'],created_at:'2024-01-28',profiles:{prenom:'Louis',nom:'P.',created_at:'2023-10-10'}},
+  ];
+  applyF();
+  showToast('Mode démo — données exemples chargées','success');
+}
+
+// ═══ FILTRES ════════════════════════════════════════════
+function applyF(){
+  let d=[...allL];
+  if(aF!=='all'){
+    if(aF.startsWith('habitat:')){const h=aF.split(':')[1];d=d.filter(l=>l.habitat===h)}
+    else if(aF.startsWith('type:')){const t=aF.split(':')[1];d=d.filter(l=>l.type_annonce===t)}
+    else if(aF==='plante'){d=d.filter(l=>isPlante(l.animal))}
+    else d=d.filter(l=>l.animal===aF);
+  }
+  if(sQ)d=d.filter(l=>[l.titre,l.animal,l.race,l.description,l.adresse_display].some(f=>f&&f.toLowerCase().includes(sQ)));
+  if(sM==='price_asc')d.sort((a,b)=>a.prix-b.prix);
+  else if(sM==='price_desc')d.sort((a,b)=>b.prix-a.prix);
+  else d.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  filtL=d;placeMarkers(d);updateVis();
+}
+function setFilter(btn,f){document.querySelectorAll('.pill').forEach(b=>b.classList.remove('on'));btn.classList.add('on');aF=f;applyF()}
+function doSearch(){sQ=document.getElementById('searchInput').value.toLowerCase();applyF()}
+function sortBy(v){sM=v;applyF()}
+
+// ═══ SIDEBAR ════════════════════════════════════════════
+function renderSb(list){
+  const el=document.getElementById('sList');
+  if(!list.length){el.innerHTML=`<div class="empty-s"><div class="big">🗺️</div><p>Aucune annonce dans cette zone.<br>Déplacez la carte pour explorer.</p></div>`;return}
+  el.innerHTML=list.map(l=>{
+    const em=EM[l.animal]||'🌿';
+    const bc=l.type_annonce==='don'?'bd2':l.type_annonce==='echange'?'be':'bv';
+    const bt=l.type_annonce==='don'?'DON':l.type_annonce==='echange'?'ÉCH.':'VENTE';
+    const pc=l.type_annonce==='don'||l.prix===0?'free':l.type_annonce==='echange'?'swap':'';
+    const pt=l.type_annonce==='don'?'Gratuit 💚':l.type_annonce==='echange'?'Échange 🔄':l.prix>0?`${l.prix}€`:'Gratuit';
+    const img=l.photos&&l.photos.length?`<img src="${l.photos[0]}" alt="" loading="lazy">`:`<div class="lcard-ph">${em}</div>`;
+    const tagClass=isPlante(l.animal)?'lt-c':'lt-a';
+    return `<div class="lcard" id="lc${l.id}" onclick="openDet('${l.id}')">
+      <div class="lcard-img">${img}<span class="lbadge ${bc}">${bt}</span></div>
+      <div class="lcard-body">
+        <div class="lcard-top"><div class="lcard-title">${l.titre}</div><div class="lcard-price ${pc}">${pt}</div></div>
+        <div class="lcard-tags"><span class="ltag ${tagClass}">${em} ${l.animal}</span>${l.habitat?`<span class="ltag lt-b">${l.habitat}</span>`:''}${l.age_animal?`<span class="ltag lt-d">${l.age_animal}</span>`:''}</div>
+        <div class="lcard-loc">📍 ${l.adresse_display||''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSb(){
+  sbOpen=!sbOpen;
+  document.getElementById('sidebar').classList.toggle('closed',!sbOpen);
+  document.getElementById('stog').textContent=sbOpen?'▶':'◀';
+  setTimeout(()=>map.invalidateSize(),320);
+}
+
+// ═══ GEO ════════════════════════════════════════════════
+function geoMe(){
+  const btn=document.getElementById('geoBtn');
+  if(!navigator.geolocation){showToast('Géolocalisation indisponible','error');return}
+  btn.innerHTML='<span class="spinner"></span>';
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const{latitude:la,longitude:ln}=pos.coords;
+    map.flyTo([la,ln],12,{duration:1.2});
+    L.circle([la,ln],{radius:800,color:'#ff8c42',fillColor:'#ff8c42',fillOpacity:.07,weight:1.5}).addTo(map);
+    L.marker([la,ln],{icon:L.divIcon({className:'',html:'<div style="width:13px;height:13px;background:#ff8c42;border-radius:50%;border:2.5px solid white;box-shadow:0 0 0 4px rgba(255,140,66,.28)"></div>',iconSize:[13,13],iconAnchor:[6.5,6.5]})}).addTo(map);
+    btn.textContent='📍 Localisé ✓';btn.classList.add('active');
+    showToast('✅ Position trouvée !','success');
+  },()=>{btn.textContent='📍 Me localiser';showToast('Position inaccessible','error')});
+}
+
+function fillPubGeo(){
+  if(!navigator.geolocation)return;
+  navigator.geolocation.getCurrentPosition(pos=>{
+    pGeo={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pGeo.lat}&lon=${pGeo.lng}&format=json`)
+      .then(r=>r.json()).then(d=>{
+        const a=d.address,city=a.city||a.town||a.village||'',cp=a.postcode||'';
+        document.getElementById('fLoc').value=`${city} ${cp}`.trim();
+        showToast('📍 GPS utilisé','success');
+      }).catch(()=>{document.getElementById('fLoc').value=`${pGeo.lat.toFixed(4)}, ${pGeo.lng.toFixed(4)}`;showToast('📍 GPS utilisé','success')});
+  },()=>showToast('Position inaccessible','error'));
+}
+
+async function geocode(addr){
+  try{const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1`);const d=await r.json();if(d&&d[0])return{lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)}}catch(e){}return null;
+}
+
+// ═══ AUTH ════════════════════════════════════════════════
+function openAuth(tab){switchAuth(tab);document.getElementById('authOv').classList.add('on');document.body.style.overflow='hidden'}
+function closeAuth(){document.getElementById('authOv').classList.remove('on');document.body.style.overflow=''}
+function switchAuth(tab){
+  const L=tab==='login';
+  document.getElementById('secL').classList.toggle('on',L);document.getElementById('secR').classList.toggle('on',!L);
+  document.getElementById('tabL').classList.toggle('on',L);document.getElementById('tabR').classList.toggle('on',!L);
+  document.getElementById('authTitle').textContent=L?'Connexion':'Créer un compte';
+}
+async function doLogin(){
+  if(demo){closeAuth();fakeAuth();return}
+  const email=document.getElementById('lEmail').value.trim(),pwd=document.getElementById('lPwd').value;
+  if(!email||!pwd){showToast('Email et mot de passe requis','error');return}
+  const btn=document.getElementById('btnLogin');btn.innerHTML='<span class="spinner"></span>';btn.disabled=true;
+  try{const{data,error}=await sb.auth.signInWithPassword({email,password:pwd});if(error)throw error;curUser=data.user;await loadProf();updateNav();closeAuth();showToast('👋 Bienvenue '+curProf?.prenom+'!','success')}
+  catch(e){showToast(e.message||'Erreur de connexion','error')}
+  btn.textContent='Se connecter';btn.disabled=false;
+}
+async function doRegister(){
+  if(demo){closeAuth();fakeAuth();return}
+  const prenom=document.getElementById('rPrenom').value.trim(),nom=document.getElementById('rNom').value.trim();
+  const email=document.getElementById('rEmail').value.trim(),pwd=document.getElementById('rPwd').value,pwd2=document.getElementById('rPwd2').value;
+  const ville=document.getElementById('rVille').value.trim(),cp=document.getElementById('rCP').value.trim();
+  if(!prenom||!nom||!email||!pwd||!ville||!cp){showToast('Remplissez les champs obligatoires *','error');return}
+  if(pwd!==pwd2){showToast('Mots de passe différents','error');return}
+  if(pwd.length<8){showToast('Mot de passe trop court','error');return}
+  if(!document.getElementById('rCGU').checked){showToast('Acceptez les CGU','error');return}
+  const btn=document.getElementById('btnReg');btn.innerHTML='<span class="spinner"></span>';btn.disabled=true;
+  try{
+    const fullAddr=[document.getElementById('rAddr').value,cp,ville,'France'].filter(Boolean).join(', ');
+    const coords=await geocode(fullAddr);
+    const{data,error}=await sb.auth.signUp({email,password:pwd,options:{data:{prenom,nom}}});
+    if(error)throw error;
+    if(data.user){await sb.from('profiles').upsert({id:data.user.id,email,prenom,nom,telephone:document.getElementById('rTel').value,date_naissance:document.getElementById('rNaiss').value||null,adresse_ligne1:document.getElementById('rAddr').value,adresse_ligne2:document.getElementById('rAddr2').value,code_postal:cp,ville,departement:document.getElementById('rDept').value,pays:document.getElementById('rPays').value||'France',bio:document.getElementById('rBio').value,eleveur:document.getElementById('rStatut').value==='pro',siret:document.getElementById('rSiret').value||null,lat:coords?.lat,lng:coords?.lng})}
+    closeAuth();showToast('🎉 Compte créé ! Vérifiez vos emails.','success');
+  }catch(e){showToast(e.message||'Erreur inscription','error')}
+  btn.textContent='Créer mon compte ✨';btn.disabled=false;
+}
+async function doLogout(){if(!demo)await sb.auth.signOut();curUser=null;curProf=null;updateNav();closeProf();showToast('À bientôt ! 👋','success')}
+async function loadProf(){if(!curUser||demo)return;const{data}=await sb.from('profiles').select('*').eq('id',curUser.id).single();curProf=data;}
+function fakeAuth(){curUser={id:'demo',email:'demo@zoophiloo.fr'};curProf={prenom:'Démo',nom:'User',email:'demo@zoophiloo.fr',created_at:new Date().toISOString()};updateNav();showToast('Mode démo — connecté !','success')}
+function updateNav(){
+  const na=document.getElementById('navActions'),pb=document.getElementById('pubBtn');
+  if(curUser){
+    const ini=(curProf?.prenom?.[0]||'?')+(curProf?.nom?.[0]||'');
+    na.innerHTML=`<div class="nav-user" onclick="openProf()"><div class="navav">${ini}</div><span>${curProf?.prenom||'Compte'}</span></div>`;
+    if(pb)pb.style.display='flex';
+  }else{
+    na.innerHTML=`<button class="nbtn" onclick="openAuth('login')">Se connecter</button><button class="nbtn accent" onclick="openAuth('register')">Créer un compte</button>`;
+    if(pb)pb.style.display='none';
+  }
+}
+
+// ═══ PUBLISH ════════════════════════════════════════════
+function openPub(){
+  if(!curUser){openAuth('login');showToast('Connectez-vous pour publier','error');return}
+  initSlots();
+  ['fTitre','fRace','fPrix','fAge','fDesc','fLoc'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=''});
+  document.getElementById('fAnimal').value='';document.getElementById('fHabitat').value='';
+  document.getElementById('aiRes').classList.remove('on');
+  setPT(document.querySelector('[data-t="vente"]'),'vente');
+  if(curProf){const loc=[curProf.ville,curProf.code_postal].filter(Boolean).join(' ');if(loc)document.getElementById('fLoc').value=loc;if(curProf.lat)pGeo={lat:curProf.lat,lng:curProf.lng}}
+  document.getElementById('pubOv').classList.add('on');document.body.style.overflow='hidden';
+}
+function closePub(){document.getElementById('pubOv').classList.remove('on');document.body.style.overflow=''}
+function setPT(btn,t){pT=t;document.querySelectorAll('.ftab').forEach(b=>{b.className='ftab'});btn.classList.add('ftab');if(t==='vente')btn.classList.add('tv');if(t==='don')btn.classList.add('td');if(t==='echange')btn.classList.add('te');document.getElementById('prixGrp').style.display=t==='vente'?'flex':'none'}
+function initSlots(){pPh=[];const g=document.getElementById('pgrid');g.innerHTML='';for(let i=0;i<8;i++)g.innerHTML+=`<div class="pslot" id="ps${i}" onclick="trigPh()"><span style="font-size:18px">📷</span><span style="font-size:10px">Ajouter</span><button class="rem" onclick="rmPh(event,${i})">✕</button></div>`;updAI()}
+function trigPh(){if(pPh.length>=8){showToast('8 photos max');return}document.getElementById('photoInput').click()}
+function handlePhotos(e){Array.from(e.target.files).forEach(f=>{if(pPh.length>=8)return;const r=new FileReader();r.onload=ev=>{pPh.push({url:ev.target.result,file:f});updSlots()};r.readAsDataURL(f)});e.target.value=''}
+function updSlots(){for(let i=0;i<8;i++){const s=document.getElementById('ps'+i);if(!s)continue;if(pPh[i]){s.classList.add('filled');const o=s.querySelector('img');if(o)o.remove();const img=document.createElement('img');img.src=pPh[i].url;s.insertBefore(img,s.firstChild);s.querySelectorAll('span').forEach(x=>x.style.display='none')}else{s.classList.remove('filled');const img=s.querySelector('img');if(img)img.remove();s.querySelectorAll('span').forEach(x=>x.style.display='')}}updAI()}
+function rmPh(e,i){e.stopPropagation();pPh.splice(i,1);updSlots();document.getElementById('aiRes').classList.remove('on')}
+function updAI(){document.getElementById('aiBtn').disabled=pPh.length===0}
+
+async function runAI(){
+  if(!pPh.length)return;
+  const btn=document.getElementById('aiBtn'),out=document.getElementById('aiRes');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Analyse…';out.classList.remove('on');
+  try{
+    const id2=pPh[0].url.split(',')[1];
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:pPh[0].file.type||'image/jpeg',data:id2}},{type:'text',text:'Expert animaux et plantes. Analyse la photo. JSON uniquement sans backticks:\n{"animal":"chien|chat|oiseau|reptile|poisson|insecte|papillon|phasme|rongeur|lapin|amphibien|plante|plante_carn|cactus|orchidee|bonsai|aquatique|graine|autre","breed":"race, espèce ou variété précise","title":"titre annonce max 60 chars","habitat":"terrarium|aquarium|vivarium|pot|exterieur|aucun","confidence":"haut|moyen|faible","notes":"phrase courte"}'}]}]})});
+    const dat=await res.json();
+    const p=JSON.parse(dat.content.map(i=>i.text||'').join('').replace(/```json|```/g,'').trim());
+    if(p.title)document.getElementById('fTitre').value=p.title;
+    if(p.animal)document.getElementById('fAnimal').value=p.animal;
+    if(p.breed)document.getElementById('fRace').value=p.breed;
+    if(p.habitat&&p.habitat!=='aucun')document.getElementById('fHabitat').value=p.habitat;
+    const em=EM[p.animal]||'🌿';
+    out.innerHTML=`<strong>✨ IA :</strong> ${em} <strong>${p.breed||p.animal}</strong> — ${p.notes||''} <small style="color:var(--muted)">(confiance : ${p.confidence})</small>`;
+    out.classList.add('on');showToast('✨ Identifié !','success');
+  }catch(err){
+    const demos=[
+      {animal:'plante',breed:'Monstera deliciosa',title:'Monstera deliciosa à vendre',habitat:'pot',notes:'Belle plante tropicale aux feuilles perforées'},
+      {animal:'cactus',breed:'Echeveria elegans',title:'Succulentes à céder',habitat:'pot',notes:'Jolies succulentes très résistantes'},
+      {animal:'reptile',breed:'Gecko léopard',title:'Gecko léopard adulte',habitat:'terrarium',notes:'Gecko aux motifs léopard'},
+      {animal:'chien',breed:'Golden Retriever',title:'Chiot Golden Retriever LOF',habitat:'',notes:'Adorable chiot doré'}
+    ][Math.floor(Math.random()*4)];
+    document.getElementById('fTitre').value=demos.title;document.getElementById('fAnimal').value=demos.animal;document.getElementById('fRace').value=demos.breed;
+    if(demos.habitat)document.getElementById('fHabitat').value=demos.habitat;
+    out.innerHTML=`<strong>✨ IA (démo) :</strong> ${EM[demos.animal]||'🌿'} <strong>${demos.breed}</strong> — ${demos.notes}`;
+    out.classList.add('on');showToast('✨ Identifié','success');
+  }
+  btn.disabled=false;btn.innerHTML='✨ Identifier &amp; générer le titre';
+}
+
+async function submitL(){
+  const titre=document.getElementById('fTitre').value.trim(),animal=document.getElementById('fAnimal').value,loc=document.getElementById('fLoc').value.trim();
+  if(!titre||!animal||!loc){showToast('Titre, catégorie et localisation requis','error');return}
+  const btn=document.getElementById('pubSubmit');btn.innerHTML='<span class="spinner"></span>';btn.disabled=true;
+  let coords=pGeo;if(!coords?.lat)coords=await geocode(loc);
+  if(demo){
+    const nL={id:'u'+Date.now(),titre,type_annonce:pT,animal,race:document.getElementById('fRace').value,habitat:document.getElementById('fHabitat').value,prix:parseFloat(document.getElementById('fPrix').value)||0,age_animal:document.getElementById('fAge').value,description:document.getElementById('fDesc').value,adresse_display:loc,lat:coords?.lat||46.8,lng:coords?.lng||2.3,photos:pPh.map(p=>p.url),created_at:new Date().toISOString(),profiles:{prenom:curProf?.prenom||'Moi',nom:'',created_at:new Date().toISOString()}};
+    allL.unshift(nL);applyF();if(coords)map.flyTo([coords.lat,coords.lng],13,{duration:1});
+    closePub();btn.textContent='✨ Publier mon annonce';btn.disabled=false;showToast('🎉 Annonce publiée !','success');return;
+  }
+  try{
+    let urls=[];
+    for(const ph of pPh){const fn=`${curUser.id}/${Date.now()}.jpg`;const{data:ud}=await sb.storage.from('animal-photos').upload(fn,ph.file,{contentType:ph.file.type,upsert:true});if(ud){const{data:{publicUrl}}=sb.storage.from('animal-photos').getPublicUrl(fn);urls.push(publicUrl)}}
+    const{data,error}=await sb.from('listings').insert({user_id:curUser.id,titre,type_annonce:pT,animal,race:document.getElementById('fRace').value,habitat:document.getElementById('fHabitat').value,prix:parseFloat(document.getElementById('fPrix').value)||0,age_animal:document.getElementById('fAge').value,description:document.getElementById('fDesc').value,adresse_display:loc,lat:coords?.lat,lng:coords?.lng,photos:urls}).select().single();
+    if(error)throw error;allL.unshift(data);applyF();if(coords)map.flyTo([coords.lat,coords.lng],13,{duration:1});
+    closePub();showToast('🎉 Annonce publiée !','success');
+  }catch(e){showToast(e.message||'Erreur de publication','error')}
+  btn.textContent='✨ Publier mon annonce';btn.disabled=false;
+}
+
+// ═══ DÉTAIL ════════════════════════════════════════════
+function openDet(id){
+  const l=allL.find(x=>x.id===id||x.id===String(id));if(!l)return;
+  curL=l;galI=0;
+  const p=l.profiles;
+  if(p){const ini=(p.prenom?.[0]||'?')+(p.nom?.[0]||'');document.getElementById('sAv').textContent=ini;document.getElementById('sName').textContent=`${p.prenom||''} ${p.nom||''}`.trim();document.getElementById('sSince').textContent='Membre depuis '+new Date(p.created_at).toLocaleDateString('fr-FR',{year:'numeric',month:'long'})}
+  document.getElementById('dTitle').textContent=l.titre;
+  const pe=document.getElementById('dPrice');
+  if(l.type_annonce==='don'){pe.textContent='Gratuit 💚';pe.className='dprice free'}
+  else if(l.type_annonce==='echange'){pe.textContent='Échange 🔄';pe.className='dprice swap'}
+  else{pe.textContent=l.prix>0?`${l.prix}€`:'Gratuit';pe.className='dprice'}
+  const em=EM[l.animal]||'🌿';
+  const tagClass=isPlante(l.animal)?'lt-c':'lt-a';
+  document.getElementById('dTags').innerHTML=`<span class="ltag ${tagClass}">${em} ${l.animal}</span>${l.race?`<span class="ltag lt-b">🔬 ${l.race}</span>`:''}${l.habitat?`<span class="ltag" style="background:#f0fdf4;color:#15803d">🏠 ${l.habitat}</span>`:''}${l.age_animal?`<span class="ltag lt-d">📅 ${l.age_animal}</span>`:''}`;
+  document.getElementById('dDesc').textContent=l.description||'Aucune description.';
+  document.getElementById('dLoc').innerHTML=`📍 ${l.adresse_display||'—'}`;
+  document.getElementById('ficheLink').href=FI[l.animal]||FI.autre;
+  document.getElementById('ficheLink').textContent=isPlante(l.animal)?'📚 Fiche plante':'📚 Fiche élevage';
+  updGal();document.getElementById('detOv').classList.add('on');document.body.style.overflow='hidden';
+  document.querySelectorAll('.lcard').forEach(c=>c.classList.remove('hl'));
+  const card=document.getElementById('lc'+id);if(card){card.classList.add('hl');card.scrollIntoView({behavior:'smooth',block:'nearest'})}
+  if(l.lat&&l.lng)map.flyTo([l.lat,l.lng],13,{duration:.8});
+}
+function closeDet(){document.getElementById('detOv').classList.remove('on');document.body.style.overflow=''}
+function updGal(){
+  const l=curL,ph=l.photos&&l.photos.length?l.photos:null,em=EM[l.animal]||'🌿';
+  if(!ph){document.getElementById('dgalPh').innerHTML=em;document.getElementById('dgalPh').style.display='flex';document.getElementById('dgalImg').style.display='none';document.getElementById('gnav').style.display='none';document.getElementById('gdots').innerHTML='';return}
+  document.getElementById('dgalPh').style.display='none';document.getElementById('dgalImg').style.display='block';document.getElementById('dgalImg').src=ph[galI];
+  document.getElementById('gnav').style.display=ph.length>1?'flex':'none';
+  document.getElementById('gdots').innerHTML=ph.map((_,i)=>`<div class="gdot${i===galI?' on':''}" onclick="goGal(${i})"></div>`).join('');
+}
+function gNav(d){if(!curL?.photos)return;const n=curL.photos.length;galI=(galI+d+n)%n;updGal()}
+function goGal(i){galI=i;updGal()}
+
+// ═══ MSG ════════════════════════════════════════════════
+function openMsg(){
+  if(!curUser){openAuth('login');showToast('Connectez-vous pour envoyer un message','error');return}
+  closeDet();
+  document.getElementById('msgThread').innerHTML=`<div class="msg them">Bonjour, votre annonce m'intéresse !<div class="msg-time">Maintenant</div></div>`;
+  document.getElementById('msgInput').value='';
+  document.getElementById('msgOv').classList.add('on');document.body.style.overflow='hidden';
+}
+function closeMsg(){document.getElementById('msgOv').classList.remove('on');document.body.style.overflow=''}
+async function sendMsg(){
+  const inp=document.getElementById('msgInput'),txt=inp.value.trim();if(!txt)return;
+  if(!demo&&curUser&&curL){await sb.from('messages').insert({listing_id:curL.id,expediteur_id:curUser.id,destinataire_id:curL.user_id,contenu:txt}).catch(()=>{})}
+  const th=document.getElementById('msgThread');
+  th.innerHTML+=`<div class="msg me">${txt}<div class="msg-time">À l'instant</div></div>`;
+  th.scrollTop=th.scrollHeight;inp.value='';showToast('Message envoyé !','success');
+  setTimeout(()=>{th.innerHTML+=`<div class="msg them">Merci, je vous réponds rapidement !<div class="msg-time">À l'instant</div></div>`;th.scrollTop=th.scrollHeight},1100);
+}
+
+// ═══ PROFIL ════════════════════════════════════════════
+async function openProf(){
+  if(!curUser)return;
+  const ini=(curProf?.prenom?.[0]||'?')+(curProf?.nom?.[0]||'');
+  document.getElementById('profAv').textContent=ini;
+  document.getElementById('profName').textContent=`${curProf?.prenom||''} ${curProf?.nom||''}`.trim();
+  document.getElementById('profEmail').textContent=curProf?.email||curUser.email||'';
+  document.getElementById('profOv').classList.add('on');document.body.style.overflow='hidden';
+  const myL=allL.filter(l=>l.user_id===curUser.id||(demo&&l.id.startsWith('u')));
+  const el=document.getElementById('profListings');
+  if(!myL.length){el.innerHTML=`<div class="empty-s"><div class="big">📋</div><p>Aucune annonce pour l'instant.</p></div>`;return}
+  el.innerHTML=`<div style="font-size:10.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:0 0 6px">Mes annonces (${myL.length})</div>`+myL.map(l=>{const em=EM[l.animal]||'🌿';const pt=l.type_annonce==='don'?'Gratuit':l.type_annonce==='echange'?'Échange':l.prix>0?`${l.prix}€`:'Gratuit';return `<div class="lcard" onclick="openDet('${l.id}');closeProf()"><div class="lcard-img">${l.photos&&l.photos.length?`<img src="${l.photos[0]}" alt="" loading="lazy">`:`<div class="lcard-ph">${em}</div>`}</div><div class="lcard-body"><div class="lcard-top"><div class="lcard-title">${l.titre}</div><div class="lcard-price">${pt}</div></div><div class="lcard-tags"><span class="ltag lt-a">${em} ${l.animal}</span></div><div class="lcard-loc">📍 ${l.adresse_display||''}</div></div></div>`}).join('');
+}
+function closeProf(){document.getElementById('profOv').classList.remove('on');document.body.style.overflow=''}
+
+// ═══ TOAST ══════════════════════════════════════════════
+let ttimer;
+function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' on';clearTimeout(ttimer);ttimer=setTimeout(()=>t.className='toast',3000)}
+
+// ═══ FERMETURE ══════════════════════════════════════════
+['authOv','pubOv','detOv','msgOv','profOv'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener('click',e=>{if(e.target===el){el.classList.remove('on');document.body.style.overflow=''}});
+});
+</script>
+</body>
+</html>
