@@ -34,7 +34,8 @@ export default function ConnexionPage() {
       setError("Email ou mot de passe incorrect.");
       setLoading(false);
     } else {
-      window.location.href = "/";
+      const redirect = new URLSearchParams(window.location.search).get("redirect");
+window.location.href = redirect ?? "/";
     }
   };
 
