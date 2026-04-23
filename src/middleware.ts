@@ -25,12 +25,9 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Rafraîchit la session si expirée
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  // Routes protégées — redirection si non connecté
+  // Routes protégées
   const protectedPaths = ["/publier", "/mes-annonces", "/messages", "/profil/editer", "/favoris"];
   const isProtected = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
@@ -42,24 +39,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Routes auth — redirection si déjà connecté
-  const authPaths = ["/connexion", "/inscription"];
-  const isAuthPath = authPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
-
-  if (isAuthPath && user) {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
+  // Ne pas rediriger si déjà connecté sur les pages auth
+  // On laisse window.location.href gérer ça côté client
 
   return supabaseResponse;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Exclure : _next/static, _next/image, favicon.ico, images
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
