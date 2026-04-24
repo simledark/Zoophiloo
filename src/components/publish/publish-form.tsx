@@ -21,7 +21,7 @@ const schema = z.object({
   animal_subcategory: z.string().optional(),
   plant_subcategory: z.string().optional(),
   habitat: z.string().optional(),
-  title: z.string().min(3, "Minimum 3 caractères").max(100, "Maximum 100 caractères"),
+  title: z.string().min(3, "Minimum 3 caractères — vérifiez l'étape Détails").max(100, "Maximum 100 caractères"),
   description: z.string().max(3000).optional(),
   price: z.coerce.number().min(0).optional(),
   is_negotiable: z.boolean().default(false),
@@ -30,7 +30,7 @@ const schema = z.object({
   animal_name: z.string().optional(),
   animal_age: z.coerce.number().min(0).optional(),
   animal_breed: z.string().optional(),
-  animal_sex: z.enum(["male", "femelle", "inconnu"]).optional(),
+  animal_sex: z.enum(["male", "femelle", "inconnu", ""]).optional().transform(v => v === "" ? undefined : v),
   is_vaccinated: z.boolean().optional(),
   is_sterilized: z.boolean().optional(),
   has_lof: z.boolean().default(false),
@@ -619,6 +619,13 @@ export function PublishForm() {
                 ))}
               </div>
               {error && <div className="bg-red-50 text-red-600 text-sm font-space px-4 py-3 rounded-xl">{error}</div>}
+              {Object.keys(errors).length > 0 && (
+                <div className="bg-orange/10 text-orange-d text-sm font-space px-4 py-3 rounded-xl">
+                  ⚠️ Certains champs sont incomplets. Vérifiez les étapes précédentes :
+                  {errors.title && <div>• Titre : {errors.title.message}</div>}
+                  {errors.city && <div>• Ville requise</div>}
+                </div>
+              )}
             </div>
           )}
         </div>
