@@ -108,28 +108,9 @@ export function PublishForm() {
     }
   };
 
-  const analyzeWithAI = async (file: File) => {
-    setAiLoading(true);
-    setAiError(null);
-    setAiResult(null);
-    setAiApplied(false);
-
-    const formData = new FormData();
-    formData.append("photo", file);
-
-    try {
-      const res = await fetch("/api/identify", { method: "POST", body: formData });
-      const data = await res.json();
-      if (data.error) {
-        setAiError("iNaturalist n'a pas pu identifier l'espèce sur cette photo.");
-      } else {
-        setAiResult(data as AIResult);
-      }
-    } catch {
-      setAiError("Erreur de connexion à iNaturalist.");
-    } finally {
-      setAiLoading(false);
-    }
+  const analyzeWithAI = async (_file: File) => {
+    // IA temporairement désactivée - token iNaturalist requis
+    setAiError("Identification IA temporairement indisponible.");
   };
 
   const applyAIResult = () => {
@@ -428,7 +409,8 @@ export function PublishForm() {
                         reader.onload = (ev) => setPhotoPreviews((prev) => [...prev, ev.target?.result as string]);
                         reader.readAsDataURL(file);
                       });
-                      if (firstIsNew && newFiles[0]) analyzeWithAI(newFiles[0]);
+                      // IA désactivée temporairement
+                      // if (firstIsNew && newFiles[0]) analyzeWithAI(newFiles[0]);
                     }
                   }
                 }}
