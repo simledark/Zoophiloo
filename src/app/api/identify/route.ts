@@ -16,11 +16,11 @@ function refineSubcategory(taxonName: string, commonName: string, base: { catego
   const n = (taxonName + " " + commonName).toLowerCase();
   if (base.category === "animal") {
     if (n.match(/canis|chien|dog|labrador|berger|golden|husky|bulldog|caniche|chihuahua/)) return { ...base, subcategory: "chien" };
-    if (n.match(/felis|chat|cat|siamois|maine coon|persan|bengal|ragdoll/)) return { ...base, subcategory: "chat" };
+    if (n.match(/felis|chat|cat|siamois|maine.coon|persan|bengal|ragdoll/)) return { ...base, subcategory: "chat" };
     if (n.match(/psittac|parrot|perroquet|perruche|canari|cacatoes|pinson/)) return { ...base, subcategory: "oiseau" };
     if (n.match(/gecko|iguana|serpent|snake|lezard|lizard|tortue|turtle|cameleon|python|boa/)) return { ...base, subcategory: "reptile" };
     if (n.match(/fish|poisson|guppy|betta|goldfish|carpe|discus|neon|tetra/)) return { ...base, subcategory: "poisson" };
-    if (n.match(/phasme|stick insect|phyllie/)) return { ...base, subcategory: "phasme" };
+    if (n.match(/phasme|stick.insect|phyllie/)) return { ...base, subcategory: "phasme" };
     if (n.match(/papillon|butterfly|morpho|monarch/)) return { ...base, subcategory: "papillon" };
     if (n.match(/insect|fourmi|ant|blatte|mante|scarabee|beetle/)) return { ...base, subcategory: "insecte" };
     if (n.match(/rat|souris|mouse|hamster|gerbille|cochon|guinea|chinchilla/)) return { ...base, subcategory: "rongeur" };
@@ -86,26 +86,41 @@ export async function POST(req: NextRequest) {
     const file = formData.get("photo") as File | null;
     if (!file) return NextResponse.json({ error: "Aucune photo fournie" }, { status: 400 });
 
-    // Envoyer en multipart a iNaturalist
-    const inatForm = new FormData();
-    inatForm.append("image", file, file.name);
+    console.log("Photo reçue:", file.name, file.type, file.size, "bytes");
+
+    // Convertir en base64 et envoyer via URL data
+    const bytes = await file.arrayBuffer();
+    const base64 = Buffer.from(bytes).toString("base64");
+    const dataUrl = `data:${file.type};base64,${base64}`;
+
+    console.log("Envoi à iNaturalist, taille base64:", base64.length);
 
     const inatResponse = await fetch("https://api.inaturalist.org/v1/computervision/score_image", {
       method: "POST",
-      body: inatForm,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_url: dataUrl }),
     });
 
+    console.log("iNaturalist status:", inatResponse.status);
+
     if (!inatResponse.ok) {
-      return NextResponse.json({ error: "Service iNaturalist indisponible" }, { status: 502 });
+      const errText = await inatResponse.text();
+      console.error("iNaturalist error body:", errText);
+      return NextResponse.json({ error: `iNaturalist erreur ${inatResponse.status}: ${errText}` }, { status: 502 });
     }
 
     const inatData = await inatResponse.json();
+    console.log("iNaturalist results count:", inatData.results?.length ?? 0);
+
     const results = inatData.results ?? [];
-    if (results.length === 0) return NextResponse.json({ error: "Aucune espece reconnue" });
+    if (results.length === 0) return NextResponse.json({ error: "Aucune espece reconnue sur cette photo" });
 
     const best = results[0];
     const taxon = best.taxon;
     const score = best.combined_score ?? best.vision_score ?? 0.5;
+
+    console.log("Best match:", taxon.name, "score:", score, "iconic:", taxon.iconic_taxon_name);
+
     const iconicName = taxon.iconic_taxon_name ?? "";
     const base = TAXON_TO_CATEGORY[iconicName] ?? { category: "animal" as const, subcategory: "autre" };
     const commonName = taxon.preferred_common_name ?? taxon.english_common_name ?? taxon.name ?? "Espece inconnue";
@@ -127,6 +142,7 @@ export async function POST(req: NextRequest) {
       })),
     });
   } catch (error: any) {
+    console.error("identify error:", error);
     return NextResponse.json({ error: error.message ?? "Erreur serveur" }, { status: 500 });
   }
 }
