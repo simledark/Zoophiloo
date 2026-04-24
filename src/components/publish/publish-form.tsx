@@ -148,7 +148,11 @@ export function PublishForm() {
   };
 
   const onSubmit = async (data: FormData) => {
-    if (!user) return;
+    console.log("SUBMIT clicked, user:", user?.id, "data:", data);
+    if (!user) {
+      setError("Vous devez être connecté pour publier une annonce.");
+      return;
+    }
     setUploading(true);
     setError(null);
     const supabase = getBrowserClient();
@@ -631,7 +635,12 @@ export function PublishForm() {
               Suivant<ChevronRight className="w-4 h-4" />
             </button>
           ) : (
-            <button type="submit" disabled={uploading} className="btn-primary flex items-center gap-2 disabled:opacity-60">
+            <button 
+              type="submit" 
+              disabled={uploading}
+              onClick={() => console.log("BTN clicked, errors:", errors, "user:", user?.id)}
+              className="btn-primary flex items-center gap-2 disabled:opacity-60"
+            >
               {uploading ? <><Loader2 className="w-4 h-4 animate-spin" />Publication...</> : <><CheckCircle className="w-4 h-4" />Publier l&apos;annonce</>}
             </button>
           )}
