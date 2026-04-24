@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 const TAXON_TO_CATEGORY: Record<string, { category: "animal" | "plante"; subcategory: string }> = {
   Mammalia: { category: "animal", subcategory: "autre" },
@@ -17,7 +18,7 @@ function refineSubcategory(taxonName: string, commonName: string, base: { catego
   if (base.category === "animal") {
     if (n.match(/canis|chien|dog|labrador|berger|golden|husky|bulldog|caniche|chihuahua/)) return { ...base, subcategory: "chien" };
     if (n.match(/felis|chat|cat|siamois|maine.coon|persan|bengal|ragdoll/)) return { ...base, subcategory: "chat" };
-    if (n.match(/psittac|parrot|perroquet|perruche|canari|cacatoes|pinson/)) return { ...base, subcategory: "oiseau" };
+    if (n.match(/psittac|parrot|perroquet|perruche|canari|pinson/)) return { ...base, subcategory: "oiseau" };
     if (n.match(/gecko|iguana|serpent|snake|lezard|lizard|tortue|turtle|cameleon|python|boa/)) return { ...base, subcategory: "reptile" };
     if (n.match(/fish|poisson|guppy|betta|goldfish|carpe|discus|neon|tetra/)) return { ...base, subcategory: "poisson" };
     if (n.match(/phasme|stick.insect|phyllie/)) return { ...base, subcategory: "phasme" };
@@ -81,39 +82,64 @@ function estimatePrice(sub: string): { min: number; max: number } {
 }
 
 export async function POST(req: NextRequest) {
+  const tempPath = `temp-ai/${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  
   try {
     const formData = await req.formData();
     const file = formData.get("photo") as File | null;
     if (!file) return NextResponse.json({ error: "Aucune photo fournie" }, { status: 400 });
 
-    console.log("Photo reçue:", file.name, file.type, file.size, "bytes");
+    // Créer client Supabase admin
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
-    // Convertir en base64 et envoyer via URL data
+    // 1. Upload temporaire dans Supabase Storage pour obtenir une URL publique
     const bytes = await file.arrayBuffer();
-    const base64 = Buffer.from(bytes).toString("base64");
-    const dataUrl = `data:${file.type};base64,${base64}`;
+    const { error: uploadError } = await supabase.storage
+      .from("animal-photos")
+      .upload(tempPath, bytes, {
+        contentType: file.type,
+        upsert: true,
+      });
 
-    console.log("Envoi à iNaturalist, taille base64:", base64.length);
+    if (uploadError) {
+      console.error("Upload error:", uploadError);
+      return NextResponse.json({ error: "Erreur upload image" }, { status: 500 });
+    }
 
+    // 2. Obtenir l URL publique
+    const { data: { publicUrl } } = supabase.storage
+      .from("animal-photos")
+      .getPublicUrl(tempPath);
+
+    console.log("Image publique:", publicUrl);
+
+    // 3. Envoyer l URL publique a iNaturalist
     const inatResponse = await fetch("https://api.inaturalist.org/v1/computervision/score_image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image_url: dataUrl }),
+      body: JSON.stringify({ image_url: publicUrl }),
     });
+
+    // 4. Supprimer l image temporaire
+    await supabase.storage.from("animal-photos").remove([tempPath]);
 
     console.log("iNaturalist status:", inatResponse.status);
 
     if (!inatResponse.ok) {
       const errText = await inatResponse.text();
-      console.error("iNaturalist error body:", errText);
-      return NextResponse.json({ error: `iNaturalist erreur ${inatResponse.status}: ${errText}` }, { status: 502 });
+      console.error("iNaturalist error:", errText);
+      return NextResponse.json({ error: "Service iNaturalist indisponible" }, { status: 502 });
     }
 
     const inatData = await inatResponse.json();
-    console.log("iNaturalist results count:", inatData.results?.length ?? 0);
-
     const results = inatData.results ?? [];
-    if (results.length === 0) return NextResponse.json({ error: "Aucune espece reconnue sur cette photo" });
+
+    console.log("iNaturalist results:", results.length);
+
+    if (results.length === 0) return NextResponse.json({ error: "Aucune espece reconnue" });
 
     const best = results[0];
     const taxon = best.taxon;
@@ -142,6 +168,15 @@ export async function POST(req: NextRequest) {
       })),
     });
   } catch (error: any) {
+    // Nettoyer en cas d erreur
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      await supabase.storage.from("animal-photos").remove([tempPath]);
+    } catch {}
+    
     console.error("identify error:", error);
     return NextResponse.json({ error: error.message ?? "Erreur serveur" }, { status: 500 });
   }
