@@ -25,24 +25,25 @@ export default function ConnexionPage() {
   const onSubmit = async (data: LoginForm) => {
     setLoading(true);
     setError(null);
+
     const supabase = getBrowserClient();
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     });
+
     if (error) {
       setError("Email ou mot de passe incorrect.");
       setLoading(false);
     } else {
-      const redirect = new URLSearchParams(window.location.search).get("redirect");
-window.location.href = redirect ?? "/";
+      // Redirection vers homepage sans passer par le middleware
+      window.location.replace("/");
     }
   };
 
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <Link href="/" className="flex items-center justify-center gap-2.5 mb-8">
           <div className="w-10 h-10 bg-orange rounded-[10px] flex items-center justify-center">
             <span className="font-syne font-extrabold text-white text-2xl">Z</span>

@@ -25,22 +25,7 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
-
-  // Routes protégées
-  const protectedPaths = ["/publier", "/mes-annonces", "/messages", "/profil/editer", "/favoris"];
-  const isProtected = protectedPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
-
-  if (isProtected && !user) {
-    const loginUrl = new URL("/connexion", request.url);
-    loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // Ne pas rediriger si déjà connecté sur les pages auth
-  // On laisse window.location.href gérer ça côté client
+  await supabase.auth.getUser();
 
   return supabaseResponse;
 }
