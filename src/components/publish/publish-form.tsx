@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -67,6 +67,18 @@ export function PublishForm() {
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiApplied, setAiApplied] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Empêcher le navigateur d'ouvrir les fichiers glissés n'importe où sur la page
+  useEffect(() => {
+    const prevent = (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+    window.addEventListener("dragover", prevent);
+    window.addEventListener("drop", prevent);
+    return () => {
+      window.removeEventListener("dragover", prevent);
+      window.removeEventListener("drop", prevent);
+    };
+  }, []);
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -403,27 +415,32 @@ export function PublishForm() {
                 onDrop={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  setIsDragging(false);
                   if (photos.length < APP_CONFIG.maxPhotosPerListing) {
                     const dt = e.dataTransfer;
                     const files = Array.from(dt.files).filter((f: any) => f.type.startsWith("image/"));
                     if (files.length > 0) {
                       const newFiles = files.slice(0, APP_CONFIG.maxPhotosPerListing - photos.length) as File[];
+                      const firstIsNew = photos.length === 0;
                       setPhotos((prev) => [...prev, ...newFiles]);
                       newFiles.forEach((file) => {
                         const reader = new FileReader();
                         reader.onload = (ev) => setPhotoPreviews((prev) => [...prev, ev.target?.result as string]);
                         reader.readAsDataURL(file);
                       });
-                      if (photos.length === 0 && newFiles[0]) analyzeWithAI(newFiles[0]);
+                      if (firstIsNew && newFiles[0]) analyzeWithAI(newFiles[0]);
                     }
                   }
                 }}
-                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
+                onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
+                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }}
                 className={cn(
                   "flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border-2 border-dashed transition-all select-none",
                   photos.length >= APP_CONFIG.maxPhotosPerListing
                     ? "border-sand opacity-50 cursor-not-allowed"
+                    : isDragging
+                    ? "border-orange bg-orange/10 cursor-copy"
                     : "border-sand hover:border-orange/50 hover:bg-orange/5 cursor-pointer"
                 )}
               >
