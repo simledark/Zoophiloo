@@ -212,7 +212,7 @@ export function PublishForm() {
       console.log("Insert result:", listing, "error:", insertErr);
       if (insertErr) throw insertErr;
       console.log("Redirecting to:", `/annonces/${listing.id}`);
-      router.push(`/annonces/${listing.id}?published=1`);
+      window.location.href = `/annonces/${listing.id}?published=1`;
     } catch (e: any) {
       console.error("Submit error:", e);
       setError(e.message ?? "Une erreur est survenue. Vérifiez la console.");
