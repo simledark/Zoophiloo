@@ -397,22 +397,45 @@ export function PublishForm() {
                 </p>
               </div>
 
-              {/* Zone upload */}
-              <label className={cn(
-                "flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border-2 border-dashed cursor-pointer transition-all",
-                photos.length >= APP_CONFIG.maxPhotosPerListing
-                  ? "border-sand opacity-50 cursor-not-allowed"
-                  : "border-sand hover:border-orange/50 hover:bg-orange/2"
-              )}>
+              {/* Zone upload drag&drop */}
+              <div
+                onClick={() => { if (photos.length < APP_CONFIG.maxPhotosPerListing) document.getElementById("photo-input")?.click(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (photos.length < APP_CONFIG.maxPhotosPerListing) {
+                    const dt = e.dataTransfer;
+                    const files = Array.from(dt.files).filter((f: any) => f.type.startsWith("image/"));
+                    if (files.length > 0) {
+                      const newFiles = files.slice(0, APP_CONFIG.maxPhotosPerListing - photos.length) as File[];
+                      setPhotos((prev) => [...prev, ...newFiles]);
+                      newFiles.forEach((file) => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => setPhotoPreviews((prev) => [...prev, ev.target?.result as string]);
+                        reader.readAsDataURL(file);
+                      });
+                      if (photos.length === 0 && newFiles[0]) analyzeWithAI(newFiles[0]);
+                    }
+                  }
+                }}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border-2 border-dashed transition-all select-none",
+                  photos.length >= APP_CONFIG.maxPhotosPerListing
+                    ? "border-sand opacity-50 cursor-not-allowed"
+                    : "border-sand hover:border-orange/50 hover:bg-orange/5 cursor-pointer"
+                )}
+              >
                 <Upload className="w-8 h-8 text-ink/30" />
                 <div className="text-center">
-                  <p className="font-space font-medium text-sm text-ink/60">Cliquez ou glissez vos photos</p>
+                  <p className="font-space font-medium text-sm text-ink/60">Cliquez ou glissez vos photos ici</p>
                   <p className="font-space text-xs text-ink/30 mt-1">JPG, PNG, WebP — max 5 Mo chacune</p>
                 </div>
-                <input type="file" accept="image/*" multiple className="hidden"
+                <input id="photo-input" type="file" accept="image/*" multiple className="hidden"
                   disabled={photos.length >= APP_CONFIG.maxPhotosPerListing}
                   onChange={(e) => addPhotos(e.target.files)} />
-              </label>
+              </div>
 
               {/* Aperçus photos */}
               {photoPreviews.length > 0 && (
