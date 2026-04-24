@@ -158,16 +158,24 @@ export function PublishForm() {
     const supabase = getBrowserClient();
 
     try {
+      // Upload photos
       const photoUrls: string[] = [];
+      console.log("Photos to upload:", photos.length);
       for (const photo of photos) {
         const ext = photo.name.split(".").pop();
         const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        console.log("Uploading photo:", path);
         const { error: uploadErr } = await supabase.storage
           .from(APP_CONFIG.storageBucket)
           .upload(path, photo, { cacheControl: "3600", upsert: false });
-        if (!uploadErr) photoUrls.push(path);
+        if (uploadErr) {
+          console.error("Photo upload error:", uploadErr);
+        } else {
+          photoUrls.push(path);
+        }
       }
 
+      console.log("Inserting listing...");
       const { data: listing, error: insertErr } = await supabase
         .from("listings")
         .insert({
@@ -201,11 +209,13 @@ export function PublishForm() {
         .select()
         .single();
 
+      console.log("Insert result:", listing, "error:", insertErr);
       if (insertErr) throw insertErr;
+      console.log("Redirecting to:", `/annonces/${listing.id}`);
       router.push(`/annonces/${listing.id}?published=1`);
     } catch (e: any) {
-      setError(e.message ?? "Une erreur est survenue.");
-    } finally {
+      console.error("Submit error:", e);
+      setError(e.message ?? "Une erreur est survenue. Vérifiez la console.");
       setUploading(false);
     }
   };
